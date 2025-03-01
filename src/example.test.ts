@@ -1,4 +1,43 @@
-import { Entity, MikroORM, PrimaryKey, Property } from '@mikro-orm/sqlite';
+import { Entity, MikroORM, PrimaryKey, Property, Type, PostgreSqlDriver } from '@mikro-orm/postgresql';
+
+interface PointDTO {
+  latitude: number
+  longitude: number
+}
+
+class PointType extends Type<
+  PointDTO | undefined,
+  string | undefined
+> {
+  convertToDatabaseValue(value?: PointDTO): string | undefined {
+    if (!value)
+      return undefined
+
+    return `SRID=4326;POINT(${value.longitude} ${value.latitude})`
+  }
+
+  convertToJSValue(value?: string): PointDTO | undefined {
+    const m = value?.match(/point\((-?\d+(\.\d+)?) (-?\d+(\.\d+)?)\)/i)
+
+    if (!m)
+      return undefined
+
+    return { latitude: +m[1], longitude: +m[3] }
+  }
+
+  convertToJSValueSQL(key: string) {
+    return `ST_AsText(${key})`
+  }
+
+  convertToDatabaseValueSQL(key: string) {
+    return `${key}::geometry`
+  }
+
+  getColumnType(): string {
+    return 'geometry'
+  }
+}
+
 
 @Entity()
 class User {
@@ -6,24 +45,19 @@ class User {
   @PrimaryKey()
   id!: number;
 
-  @Property()
-  name: string;
-
-  @Property({ unique: true })
-  email: string;
-
-  constructor(name: string, email: string) {
-    this.name = name;
-    this.email = email;
-  }
-
+  @Property({ type: PointType, nullable: true })
+  point: PointDTO | null = null;
 }
 
 let orm: MikroORM;
 
 beforeAll(async () => {
   orm = await MikroORM.init({
-    dbName: ':memory:',
+    driver: PostgreSqlDriver,
+    dbName: 'postgres',
+    user: 'postgres',
+    password: 'password',
+    port: 5477,
     entities: [User],
     debug: ['query', 'query-params'],
     allowGlobalContext: true, // only for testing
@@ -35,17 +69,18 @@ afterAll(async () => {
   await orm.close(true);
 });
 
-test('basic CRUD example', async () => {
-  orm.em.create(User, { name: 'Foo', email: 'foo' });
+test('create user with null point', async () => {
+  orm.em.create(User, { point: null });
+  await orm.em.flush();
+});
+
+test('update user with null point', async () => {
+  const user = new User();
+  user.point = { latitude: 1, longitude: 1 };
+  orm.em.persist(user);
   await orm.em.flush();
   orm.em.clear();
 
-  const user = await orm.em.findOneOrFail(User, { email: 'foo' });
-  expect(user.name).toBe('Foo');
-  user.name = 'Bar';
-  orm.em.remove(user);
+  user.point = null;
   await orm.em.flush();
-
-  const count = await orm.em.count(User, { email: 'foo' });
-  expect(count).toBe(0);
 });
