@@ -76,13 +76,13 @@ test('assign with objects', async () => {
   // The typings are still failing here, even if the payload is valid
   wrap(ev).assign({
     // @ts-ignore
-    stations: ["Nantes", { name: "Bruxelles", position: { latitude: 1, longitude: 1 } }]
+    stations: ["Paris", { name: "Bruxelles", position: { latitude: 1, longitude: 1 } }]
   });
 
   await orm.em.flush();
 
   expect(ev.stations.length).toBe(2);
-  expect(ev.stations.getItems().map(s => s.name)).toEqual(["Nantes", "Bruxelles"]);
+  expect(ev.stations.getItems().map(s => s.name)).toEqual(["Paris", "Bruxelles"]);
 });
 
 // 🚨 passes, but the typings are failing
