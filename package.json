@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "start": "jest",
-    "test": "jest"
+    "test": "jest --runInBand",
+    "test:typings": "jest --runInBand src/assign.typings.test.ts",
+    "test:assign": "jest --runInBand src/assign.test.ts"
   },
   "author": "Martin Adamek",
   "license": "MIT",
